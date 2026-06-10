@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/hooks/useAuth';
 import { api } from '@/lib/api';
-import type { Booking } from '@/types';
+import type { Booking, Car } from '@/types';
 
 interface Stats {
   totalCars: number;
@@ -34,9 +34,38 @@ export default function DashboardPage() {
   useEffect(() => {
     if (!isAuthenticated) return;
 
-    // TODO: fetch stats from /api/cars and /api/bookings/my
     const fetchStats = async () => {
-      setIsFetching(false);
+      setIsFetching(true);
+      try {
+        const [carsResponse, bookingsResponse] = await Promise.all([
+          api.get<Car[]>('/cars'),
+          api.get<Booking[]>('/bookings/my?limit=100'),
+        ]);
+
+        const cars = carsResponse.data || [];
+        const bookings = bookingsResponse.data || [];
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
+        const upcomingBooking = bookings
+          .filter((booking) => {
+            const date = new Date(booking.scheduledDate);
+            return date >= today && !['completed', 'cancelled'].includes(booking.status);
+          })
+          .sort(
+            (a, b) =>
+              new Date(a.scheduledDate).getTime() - new Date(b.scheduledDate).getTime()
+          )[0] || null;
+
+        setStats({
+          totalCars: carsResponse.success ? cars.length : 0,
+          totalBookings: bookingsResponse.success ? bookingsResponse.meta?.total || bookings.length : 0,
+          pendingBookings: bookings.filter((booking) => booking.status === 'pending').length,
+          upcomingBooking,
+        });
+      } finally {
+        setIsFetching(false);
+      }
     };
 
     fetchStats();

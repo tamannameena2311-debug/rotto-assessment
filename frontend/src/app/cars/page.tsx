@@ -28,8 +28,20 @@ export default function CarsPage() {
   }, [isLoading, isAuthenticated, router]);
 
   const fetchCars = useCallback(async () => {
-    // TODO
-    setIsFetching(false);
+    setError('');
+    setIsFetching(true);
+    try {
+      const response = await api.get<Car[]>('/cars');
+      if (response.success) {
+        setCars(response.data || []);
+      } else {
+        setError(response.error?.message || 'Could not load cars');
+      }
+    } catch {
+      setError('Could not load cars');
+    } finally {
+      setIsFetching(false);
+    }
   }, []);
 
   useEffect(() => {
@@ -42,11 +54,53 @@ export default function CarsPage() {
 
   const handleAddCar = async (e: React.FormEvent) => {
     e.preventDefault();
-    // TODO
+    setFormError('');
+    setIsSaving(true);
+
+    if (!form.fuelType) {
+      setFormError('Please choose a fuel type');
+      setIsSaving(false);
+      return;
+    }
+
+    try {
+      const response = await api.post<Car>('/cars', {
+        make: form.make.trim(),
+        model: form.model.trim(),
+        year: Number(form.year),
+        registrationNumber: form.registrationNumber.trim().toUpperCase(),
+        fuelType: form.fuelType,
+      });
+
+      if (response.success && response.data) {
+        const newCar = response.data;
+        setCars((prev) => [newCar, ...prev]);
+        setForm(EMPTY_CAR_FORM);
+        setIsModalOpen(false);
+      } else {
+        setFormError(response.error?.message || 'Could not add car');
+      }
+    } catch {
+      setFormError('Could not add car');
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const handleDeleteCar = async (id: string) => {
-    // TODO
+    setError('');
+    if (!window.confirm('Remove this car?')) return;
+
+    try {
+      const response = await api.delete<{ id: string }>(`/cars/${id}`);
+      if (response.success) {
+        setCars((prev) => prev.filter((car) => car._id !== id));
+      } else {
+        setError(response.error?.message || 'Could not remove car');
+      }
+    } catch {
+      setError('Could not remove car');
+    }
   };
 
   if (isLoading || isFetching) return <div className="rt-loading">Loading your cars...</div>;

@@ -42,12 +42,33 @@ export default function BookingsPage() {
   }, [isLoading, isAuthenticated, router]);
 
   const fetchBookings = useCallback(async () => {
-    // TODO
-    setIsFetching(false);
+    setError('');
+    setIsFetching(true);
+    try {
+      const response = await api.get<Booking[]>(`/bookings/my?page=${page}&limit=10`);
+      if (response.success) {
+        setBookings(response.data || []);
+        setTotal(response.meta?.total || 0);
+        setTotalPages(response.meta?.totalPages || 1);
+      } else {
+        setError(response.error?.message || 'Could not load bookings');
+      }
+    } catch {
+      setError('Could not load bookings');
+    } finally {
+      setIsFetching(false);
+    }
   }, [page]);
 
   const fetchCars = useCallback(async () => {
-    // TODO
+    try {
+      const response = await api.get<Car[]>('/cars');
+      if (response.success) {
+        setCars(response.data || []);
+      }
+    } catch {
+      setError('Could not load cars');
+    }
   }, []);
 
   useEffect(() => {
@@ -65,7 +86,40 @@ export default function BookingsPage() {
 
   const handleCreateBooking = async (e: React.FormEvent) => {
     e.preventDefault();
-    // TODO
+    setFormError('');
+    setIsSaving(true);
+
+    if (!form.serviceType) {
+      setFormError('Please choose a service type');
+      setIsSaving(false);
+      return;
+    }
+
+    try {
+      const response = await api.post<Booking>('/bookings', {
+        carId: form.carId,
+        serviceType: form.serviceType,
+        scheduledDate: form.scheduledDate,
+        notes: form.notes.trim() || undefined,
+        estimatedCost: form.estimatedCost ? Number(form.estimatedCost) : 0,
+      });
+
+      if (response.success) {
+        setForm(EMPTY_FORM);
+        setIsModalOpen(false);
+        if (page === 1) {
+          await fetchBookings();
+        } else {
+          setPage(1);
+        }
+      } else {
+        setFormError(response.error?.message || 'Could not create booking');
+      }
+    } catch {
+      setFormError('Could not create booking');
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   if (isLoading || isFetching) return <div className="rt-loading">Loading bookings...</div>;

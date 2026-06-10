@@ -9,6 +9,7 @@ const { requestLogger } = require('./middleware/logger');
 const authRoutes = require('./routes/auth');
 const carRoutes = require('./routes/cars');
 const bookingRoutes = require('./routes/bookings');
+const adminRoutes = require('./routes/admin');
 
 const app = express();
 
@@ -23,11 +24,10 @@ app.use(
 app.use(express.json());
 app.use(requestLogger);
 
-app.use(errorHandler);
-
 app.use('/api/auth', authRoutes);
 app.use('/api/cars', carRoutes);
 app.use('/api/bookings', bookingRoutes);
+app.use('/api/admin', adminRoutes);
 
 app.get('/api/health', (req, res) => {
   res.json({ success: true, data: { status: 'ok', timestamp: new Date() } });
@@ -39,6 +39,8 @@ app.use((req, res) => {
     error: { code: 'NOT_FOUND', message: `Route ${req.method} ${req.path} not found` },
   });
 });
+
+app.use(errorHandler);
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {

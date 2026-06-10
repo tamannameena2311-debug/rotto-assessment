@@ -63,7 +63,7 @@ const getMyBookings = async (req, res, next) => {
   try {
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 10;
-    const skip = page * limit;
+    const skip = (page - 1) * limit;
 
     const [bookings, total] = await Promise.all([
       Booking.find({ userId: req.user.id })
@@ -99,7 +99,51 @@ const getMyBookings = async (req, res, next) => {
  *   in-progress → completed | cancelled
  */
 const updateBookingStatus = async (req, res, next) => {
-  // TODO
+  try {
+    const { status } = req.body;
+
+    if (!status) {
+      return res.status(400).json({
+        success: false,
+        error: { code: 'VALIDATION_ERROR', message: 'Status is required' },
+      });
+    }
+
+    const transitions = {
+      pending: ['confirmed', 'cancelled'],
+      confirmed: ['in-progress', 'cancelled'],
+      'in-progress': ['completed', 'cancelled'],
+      completed: [],
+      cancelled: [],
+    };
+
+    const booking = await Booking.findById(req.params.id);
+    if (!booking) {
+      return res.status(404).json({
+        success: false,
+        error: { code: 'BOOKING_NOT_FOUND', message: 'Booking not found' },
+      });
+    }
+
+    const allowedStatuses = transitions[booking.status] || [];
+    if (!allowedStatuses.includes(status)) {
+      return res.status(400).json({
+        success: false,
+        error: {
+          code: 'INVALID_STATUS_TRANSITION',
+          message: `Cannot change booking status from ${booking.status} to ${status}`,
+        },
+      });
+    }
+
+    booking.status = status;
+    await booking.save();
+    await booking.populate(['carId', 'userId']);
+
+    res.json({ success: true, data: booking });
+  } catch (err) {
+    next(err);
+  }
 };
 
 /**
@@ -108,7 +152,38 @@ const updateBookingStatus = async (req, res, next) => {
  * Query params: status, serviceType, page, limit
  */
 const getAllBookings = async (req, res, next) => {
-  // TODO
+  try {
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+    const skip = (page - 1) * limit;
+    const filter = {};
+
+    if (req.query.status) filter.status = req.query.status;
+    if (req.query.serviceType) filter.serviceType = req.query.serviceType;
+
+    const [bookings, total] = await Promise.all([
+      Booking.find(filter)
+        .populate('carId')
+        .populate('userId')
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit),
+      Booking.countDocuments(filter),
+    ]);
+
+    res.json({
+      success: true,
+      data: bookings,
+      meta: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+      },
+    });
+  } catch (err) {
+    next(err);
+  }
 };
 
 module.exports = {

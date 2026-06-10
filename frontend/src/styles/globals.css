@@ -166,22 +166,11 @@
 
 /* ── Cars grid ─────────────────────────────────────────────── */
 /*
- * ❌ BUG (CSS Grid): repeat(auto-fill, 280px) creates fixed 280px columns.
- * On wide screens there's a gap on the right. On narrow screens cards overflow.
- *
- * How to find it:
- *   Open DevTools → Elements tab → select .rt-cars-grid
- *   In the Styles panel you'll see: grid-template-columns: repeat(auto-fill, 280px)
- *   The Layout panel will show the grid — columns don't fill the row.
- *
- * Fix: change  repeat(auto-fill, 280px)
- *          to  repeat(auto-fill, minmax(280px, 1fr))
- *
- * minmax(280px, 1fr) means: "at least 280px, but grow to fill available space"
+ * minmax(280px, 1fr) keeps cards readable while allowing columns to fill the row.
  */
 .rt-cars-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, 280px); /* ❌ BUG */
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
   gap: 1rem;
   margin-bottom: 2rem;
 }

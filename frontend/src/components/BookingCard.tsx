@@ -1,4 +1,4 @@
-import type { Booking, Car } from '@/types';
+import type { Booking, BookingStatus, Car } from '@/types';
 
 interface BookingCardProps {
   booking: Booking;
@@ -12,17 +12,71 @@ const getCar = (booking: Booking): Car | null => {
   return null;
 };
 
-// TODO: implement this component
-// Use the CSS classes in globals.css:
-//   .rt-booking-card, .rt-booking-card__header, .rt-booking-card__service,
-//   .rt-booking-card__date, .rt-booking-card__car, .rt-booking-status,
-//   .rt-booking-status--{pending|confirmed|in-progress|completed|cancelled}
-export default function BookingCard({ booking }: BookingCardProps) {
+const STATUS_OPTIONS: BookingStatus[] = [
+  'pending',
+  'confirmed',
+  'in-progress',
+  'completed',
+  'cancelled',
+];
+
+const formatLabel = (value: string) => value.replace(/-/g, ' ');
+
+const formatDate = (date: string) =>
+  new Date(date).toLocaleDateString('en-IN', {
+    weekday: 'short',
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+  });
+
+const formatCurrency = (amount: number) =>
+  new Intl.NumberFormat('en-IN', {
+    style: 'currency',
+    currency: 'INR',
+    maximumFractionDigits: 0,
+  }).format(amount);
+
+export default function BookingCard({ booking, onStatusChange }: BookingCardProps) {
   const car = getCar(booking);
 
   return (
     <div className="rt-booking-card">
-      {/* TODO */}
+      <div className="rt-booking-card__header">
+        <div>
+          <p className="rt-booking-card__service">{formatLabel(booking.serviceType)}</p>
+          <p className="rt-booking-card__date">{formatDate(booking.scheduledDate)}</p>
+        </div>
+
+        {onStatusChange ? (
+          <select
+            aria-label="Booking status"
+            value={booking.status}
+            onChange={(e) => onStatusChange(booking._id, e.target.value as BookingStatus)}
+            className={`rt-booking-status rt-booking-status--${booking.status}`}
+          >
+            {STATUS_OPTIONS.map((status) => (
+              <option key={status} value={status}>
+                {formatLabel(status)}
+              </option>
+            ))}
+          </select>
+        ) : (
+          <span className={`rt-booking-status rt-booking-status--${booking.status}`}>
+            {formatLabel(booking.status)}
+          </span>
+        )}
+      </div>
+
+      <p className="rt-booking-card__car">
+        {car ? `${car.year} ${car.make} ${car.model} - ${car.registrationNumber}` : 'Car details unavailable'}
+      </p>
+
+      <p className="rt-booking-card__cost">Estimated cost: {formatCurrency(booking.estimatedCost)}</p>
+
+      {booking.notes && (
+        <p className="rt-booking-card__car">{booking.notes}</p>
+      )}
     </div>
   );
 }
