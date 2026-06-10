@@ -4,7 +4,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { api } from '@/lib/api';
 import { useAuth } from '@/hooks/useAuth';
-import type { RegisterForm } from '@/types';
+import type { RegisterForm, User } from '@/types';
 
 export default function RegisterPage() {
   const { login } = useAuth();
@@ -22,8 +22,8 @@ export default function RegisterPage() {
     setIsLoading(true);
 
     try {
-      const data = await api.post('/auth/register', form);
-      if (data.success) {
+      const data = await api.post<{ token: string; user: User }>('/auth/register', form);
+      if (data.success && data.data) {
         login(data.data.token, data.data.user);
       } else {
         setError(data.error?.message || 'Registration failed');

@@ -20,7 +20,7 @@ export const useAuth = () => {
   });
 
   useEffect(() => {
-    const token = localStorage.getItem('auth_token');
+    const token = localStorage.getItem(TOKEN_KEY);
 
     if (!token) {
       setState({ user: null, isLoading: false, isAuthenticated: false });
@@ -37,11 +37,12 @@ export const useAuth = () => {
       }
 
       setState({
-        user: payload as User,
+        user: { ...payload, _id: payload.id } as User,
         isLoading: false,
         isAuthenticated: true,
       });
     } catch {
+      localStorage.removeItem(TOKEN_KEY);
       setState({ user: null, isLoading: false, isAuthenticated: false });
     }
   }, []);

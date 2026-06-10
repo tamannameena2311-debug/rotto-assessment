@@ -6,7 +6,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { api } from '@/lib/api';
 import BookingCard from '@/components/BookingCard';
 import Modal from '@/components/Modal';
-import type { Booking, Car, BookingForm, ServiceType } from '@/types';
+import type { Booking, BookingStatus, Car, BookingForm, ServiceType } from '@/types';
 
 const SERVICE_TYPES: { value: ServiceType; label: string }[] = [
   { value: 'oil-change', label: 'Oil Change' },
@@ -20,9 +20,23 @@ const EMPTY_FORM: BookingForm = {
   carId: '', serviceType: '', scheduledDate: '', notes: '', estimatedCost: '',
 };
 
+const STATUS_TRANSITIONS: Record<BookingStatus, BookingStatus[]> = {
+  pending: ['confirmed', 'cancelled'],
+  confirmed: ['in-progress', 'cancelled'],
+  'in-progress': ['completed', 'cancelled'],
+  completed: [],
+  cancelled: [],
+};
+
+const getStatusOptions = (status: BookingStatus): BookingStatus[] => [
+  status,
+  ...STATUS_TRANSITIONS[status],
+];
+
 export default function BookingsPage() {
-  const { isLoading, isAuthenticated } = useAuth();
+  const { user, isLoading, isAuthenticated } = useAuth();
   const router = useRouter();
+  const isAdmin = user?.role === 'admin';
 
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [cars, setCars] = useState<Car[]>([]);
@@ -42,20 +56,44 @@ export default function BookingsPage() {
   }, [isLoading, isAuthenticated, router]);
 
   const fetchBookings = useCallback(async () => {
-    // TODO
-    setIsFetching(false);
-  }, [page]);
+    setError('');
+    setIsFetching(true);
+    try {
+      const endpoint = isAdmin
+        ? `/bookings?page=${page}&limit=10`
+        : `/bookings/my?page=${page}&limit=10`;
+      const response = await api.get<Booking[]>(endpoint);
+      if (response.success) {
+        setBookings(response.data || []);
+        setTotal(response.meta?.total || 0);
+        setTotalPages(response.meta?.totalPages || 1);
+      } else {
+        setError(response.error?.message || 'Could not load bookings');
+      }
+    } catch {
+      setError('Could not load bookings');
+    } finally {
+      setIsFetching(false);
+    }
+  }, [isAdmin, page]);
 
   const fetchCars = useCallback(async () => {
-    // TODO
+    try {
+      const response = await api.get<Car[]>('/cars');
+      if (response.success) {
+        setCars(response.data || []);
+      }
+    } catch {
+      setError('Could not load cars');
+    }
   }, []);
 
   useEffect(() => {
     if (isAuthenticated) {
       fetchBookings();
-      fetchCars();
+      if (!isAdmin) fetchCars();
     }
-  }, [isAuthenticated, fetchBookings, fetchCars]);
+  }, [isAuthenticated, isAdmin, fetchBookings, fetchCars]);
 
   const handleFormChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
@@ -65,7 +103,79 @@ export default function BookingsPage() {
 
   const handleCreateBooking = async (e: React.FormEvent) => {
     e.preventDefault();
-    // TODO
+    setFormError('');
+    setIsSaving(true);
+
+    if (!form.serviceType) {
+      setFormError('Please choose a service type');
+      setIsSaving(false);
+      return;
+    }
+
+    try {
+      const response = await api.post<Booking>('/bookings', {
+        carId: form.carId,
+        serviceType: form.serviceType,
+        scheduledDate: form.scheduledDate,
+        notes: form.notes.trim() || undefined,
+        estimatedCost: form.estimatedCost ? Number(form.estimatedCost) : 0,
+      });
+
+      if (response.success) {
+        setForm(EMPTY_FORM);
+        setIsModalOpen(false);
+        if (page === 1) {
+          await fetchBookings();
+        } else {
+          setPage(1);
+        }
+      } else {
+        setFormError(response.error?.message || 'Could not create booking');
+      }
+    } catch {
+      setFormError('Could not create booking');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleStatusChange = async (id: string, status: BookingStatus) => {
+    const previousBooking = bookings.find((booking) => booking._id === id);
+    if (!previousBooking || previousBooking.status === status) return;
+
+    setError('');
+    setBookings((prev) =>
+      prev.map((booking) =>
+        booking._id === id ? { ...booking, status } : booking
+      )
+    );
+
+    try {
+      const response = await api.put<Booking>(`/bookings/${id}/status`, { status });
+
+      if (response.success && response.data) {
+        const updatedBooking = response.data;
+        setBookings((prev) =>
+          prev.map((booking) =>
+            booking._id === id ? updatedBooking : booking
+          )
+        );
+      } else {
+        setBookings((prev) =>
+          prev.map((booking) =>
+            booking._id === id ? previousBooking : booking
+          )
+        );
+        setError(response.error?.message || 'Could not update booking status');
+      }
+    } catch {
+      setBookings((prev) =>
+        prev.map((booking) =>
+          booking._id === id ? previousBooking : booking
+        )
+      );
+      setError('Could not update booking status');
+    }
   };
 
   if (isLoading || isFetching) return <div className="rt-loading">Loading bookings...</div>;
@@ -74,16 +184,20 @@ export default function BookingsPage() {
     <div className="rt-page">
       <div className="rt-page-header">
         <div>
-          <h1 className="rt-page-title" style={{ margin: 0 }}>My Bookings</h1>
+          <h1 className="rt-page-title" style={{ margin: 0 }}>
+            {isAdmin ? 'All Bookings' : 'My Bookings'}
+          </h1>
           {total > 0 && (
             <p style={{ fontSize: '0.875rem', color: '#6b7280', marginTop: '0.25rem' }}>
               {total} booking{total !== 1 ? 's' : ''} total
             </p>
           )}
         </div>
-        <button className="rt-btn rt-btn--primary" onClick={() => setIsModalOpen(true)}>
-          + Book Service
-        </button>
+        {!isAdmin && (
+          <button className="rt-btn rt-btn--primary" onClick={() => setIsModalOpen(true)}>
+            + Book Service
+          </button>
+        )}
       </div>
 
       {error && <div className="rt-error-banner">{error}</div>}
@@ -91,12 +205,21 @@ export default function BookingsPage() {
       {bookings.length === 0 ? (
         <div className="rt-empty">
           <h3>No bookings yet</h3>
-          <p>Book a service for one of your cars to get started.</p>
+          <p>
+            {isAdmin
+              ? 'Customer bookings will appear here.'
+              : 'Book a service for one of your cars to get started.'}
+          </p>
         </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
           {bookings.map((booking) => (
-            <BookingCard key={booking._id} booking={booking} />
+            <BookingCard
+              key={booking._id}
+              booking={booking}
+              onStatusChange={isAdmin ? handleStatusChange : undefined}
+              statusOptions={getStatusOptions(booking.status)}
+            />
           ))}
         </div>
       )}

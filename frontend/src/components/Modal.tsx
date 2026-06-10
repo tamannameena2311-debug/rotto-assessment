@@ -25,7 +25,8 @@ export default function Modal({ isOpen, onClose, title, children }: ModalProps) 
     <div
       className="rt-modal-backdrop"
       style={{
-        position: 'static',
+        position: 'fixed',
+        inset: 0,
         zIndex: 50,
         backgroundColor: 'rgba(0, 0, 0, 0.5)',
         display: 'flex',

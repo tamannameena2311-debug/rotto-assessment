@@ -1,3 +1,5 @@
+import type { ApiResponse } from '@/types';
+
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
 
 export const TOKEN_KEY = 'rotto_token';
@@ -14,49 +16,49 @@ const buildHeaders = (): HeadersInit => {
   };
 
   if (token) {
-    headers['Authorization'] = token;
+    headers['Authorization'] = `Bearer ${token}`;
   }
 
   return headers;
 };
 
-const handleResponse = async (res: Response) => {
-  const data = await res.json();
+const handleResponse = async <T>(res: Response): Promise<ApiResponse<T>> => {
+  const data = (await res.json()) as ApiResponse<T>;
   return data;
 };
 
 export const api = {
-  get: async (endpoint: string) => {
+  get: async <T>(endpoint: string): Promise<ApiResponse<T>> => {
     const res = await fetch(`${API_BASE}${endpoint}`, {
       method: 'GET',
       headers: buildHeaders(),
     });
-    return handleResponse(res);
+    return handleResponse<T>(res);
   },
 
-  post: async (endpoint: string, body: unknown) => {
+  post: async <T>(endpoint: string, body: unknown): Promise<ApiResponse<T>> => {
     const res = await fetch(`${API_BASE}${endpoint}`, {
       method: 'POST',
       headers: buildHeaders(),
       body: JSON.stringify(body),
     });
-    return handleResponse(res);
+    return handleResponse<T>(res);
   },
 
-  put: async (endpoint: string, body: unknown) => {
+  put: async <T>(endpoint: string, body: unknown): Promise<ApiResponse<T>> => {
     const res = await fetch(`${API_BASE}${endpoint}`, {
       method: 'PUT',
       headers: buildHeaders(),
       body: JSON.stringify(body),
     });
-    return handleResponse(res);
+    return handleResponse<T>(res);
   },
 
-  delete: async (endpoint: string) => {
+  delete: async <T>(endpoint: string): Promise<ApiResponse<T>> => {
     const res = await fetch(`${API_BASE}${endpoint}`, {
       method: 'DELETE',
       headers: buildHeaders(),
     });
-    return handleResponse(res);
+    return handleResponse<T>(res);
   },
 };

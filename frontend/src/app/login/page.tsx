@@ -4,7 +4,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { api } from '@/lib/api';
 import { useAuth } from '@/hooks/useAuth';
-import type { LoginForm } from '@/types';
+import type { LoginForm, User } from '@/types';
 
 export default function LoginPage() {
   const { login } = useAuth();
@@ -17,12 +17,13 @@ export default function LoginPage() {
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
     setError('');
     setIsLoading(true);
 
     try {
-      const data = await api.post('/auth/login', form);
-      if (data.success) {
+      const data = await api.post<{ token: string; user: User }>('/auth/login', form);
+      if (data.success && data.data) {
         login(data.data.token, data.data.user);
       } else {
         setError(data.error?.message || 'Login failed');

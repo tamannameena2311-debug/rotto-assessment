@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
+import { useDebounce } from '@/hooks/useDebounce';
 import { api } from '@/lib/api';
 import CarCard from '@/components/CarCard';
 import Modal from '@/components/Modal';
@@ -22,15 +23,33 @@ export default function CarsPage() {
   const [form, setForm] = useState<CarForm>(EMPTY_CAR_FORM);
   const [formError, setFormError] = useState('');
   const [isSaving, setIsSaving] = useState(false);
+  const [search, setSearch] = useState('');
+  const debouncedSearch = useDebounce(search, 300);
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) router.replace('/login');
   }, [isLoading, isAuthenticated, router]);
 
   const fetchCars = useCallback(async () => {
-    // TODO
-    setIsFetching(false);
-  }, []);
+    setError('');
+    setIsFetching(true);
+    try {
+      const params = new URLSearchParams();
+      if (debouncedSearch.trim()) params.set('search', debouncedSearch.trim());
+
+      const endpoint = params.toString() ? `/cars?${params.toString()}` : '/cars';
+      const response = await api.get<Car[]>(endpoint);
+      if (response.success) {
+        setCars(response.data || []);
+      } else {
+        setError(response.error?.message || 'Could not load cars');
+      }
+    } catch {
+      setError('Could not load cars');
+    } finally {
+      setIsFetching(false);
+    }
+  }, [debouncedSearch]);
 
   useEffect(() => {
     if (isAuthenticated) fetchCars();
@@ -42,11 +61,57 @@ export default function CarsPage() {
 
   const handleAddCar = async (e: React.FormEvent) => {
     e.preventDefault();
-    // TODO
+    setFormError('');
+    setIsSaving(true);
+
+    if (!form.fuelType) {
+      setFormError('Please choose a fuel type');
+      setIsSaving(false);
+      return;
+    }
+
+    try {
+      const response = await api.post<Car>('/cars', {
+        make: form.make.trim(),
+        model: form.model.trim(),
+        year: Number(form.year),
+        registrationNumber: form.registrationNumber.trim().toUpperCase(),
+        fuelType: form.fuelType,
+      });
+
+      if (response.success && response.data) {
+        const newCar = response.data;
+        if (debouncedSearch.trim()) {
+          await fetchCars();
+        } else {
+          setCars((prev) => [newCar, ...prev]);
+        }
+        setForm(EMPTY_CAR_FORM);
+        setIsModalOpen(false);
+      } else {
+        setFormError(response.error?.message || 'Could not add car');
+      }
+    } catch {
+      setFormError('Could not add car');
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const handleDeleteCar = async (id: string) => {
-    // TODO
+    setError('');
+    if (!window.confirm('Remove this car?')) return;
+
+    try {
+      const response = await api.delete<{ id: string }>(`/cars/${id}`);
+      if (response.success) {
+        setCars((prev) => prev.filter((car) => car._id !== id));
+      } else {
+        setError(response.error?.message || 'Could not remove car');
+      }
+    } catch {
+      setError('Could not remove car');
+    }
   };
 
   if (isLoading || isFetching) return <div className="rt-loading">Loading your cars...</div>;
@@ -62,10 +127,24 @@ export default function CarsPage() {
 
       {error && <div className="rt-error-banner">{error}</div>}
 
+      <div className="rt-form-group" style={{ maxWidth: '420px', marginBottom: '1rem' }}>
+        <label htmlFor="car-search">Search cars</label>
+        <input
+          id="car-search"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Make, model, registration, or fuel"
+        />
+      </div>
+
       {cars.length === 0 ? (
         <div className="rt-empty">
-          <h3>No cars yet</h3>
-          <p>Add your first car to start booking services.</p>
+          <h3>{debouncedSearch.trim() ? 'No matching cars' : 'No cars yet'}</h3>
+          <p>
+            {debouncedSearch.trim()
+              ? 'Try a different search term.'
+              : 'Add your first car to start booking services.'}
+          </p>
         </div>
       ) : (
         <div className="rt-cars-grid">
