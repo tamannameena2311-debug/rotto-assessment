@@ -5,6 +5,7 @@ const cors = require('cors');
 const connectDB = require('./config/db');
 const { errorHandler } = require('./middleware/errorHandler');
 const { requestLogger } = require('./middleware/logger');
+const { createSlidingWindowRateLimiter } = require('./middleware/rateLimiter');
 
 const authRoutes = require('./routes/auth');
 const carRoutes = require('./routes/cars');
@@ -15,6 +16,8 @@ const app = express();
 
 connectDB();
 
+app.set('trust proxy', 1);
+
 app.use(
   cors({
     origin: process.env.FRONTEND_URL || 'http://localhost:3000',
@@ -23,6 +26,12 @@ app.use(
 );
 app.use(express.json());
 app.use(requestLogger);
+app.use(
+  createSlidingWindowRateLimiter({
+    maxRequests: parseInt(process.env.ROTTO_RATE_LIMIT_MAX, 10) || 100,
+    windowMs: parseInt(process.env.ROTTO_RATE_LIMIT_WINDOW_MS, 10) || 60 * 1000,
+  })
+);
 
 app.use('/api/auth', authRoutes);
 app.use('/api/cars', carRoutes);

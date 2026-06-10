@@ -1,6 +1,8 @@
 const Car = require('../models/Car');
 const Booking = require('../models/Booking');
 
+const escapeRegex = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
 /**
  * POST /api/cars — create a car for the authenticated user.
  */
@@ -49,7 +51,20 @@ const createCar = async (req, res, next) => {
  */
 const getMyCars = async (req, res, next) => {
   try {
-    const cars = await Car.find({ userId: req.user.id }).sort({ createdAt: -1 });
+    const filter = { userId: req.user.id };
+    const search = req.query.search?.trim();
+
+    if (search) {
+      const regex = new RegExp(escapeRegex(search), 'i');
+      filter.$or = [
+        { make: regex },
+        { model: regex },
+        { registrationNumber: regex },
+        { fuelType: regex },
+      ];
+    }
+
+    const cars = await Car.find(filter).sort({ createdAt: -1 });
     res.json({ success: true, data: cars });
   } catch (err) {
     next(err);

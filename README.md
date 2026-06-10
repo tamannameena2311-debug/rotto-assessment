@@ -9,6 +9,9 @@ Car service booking app built with Node.js, Express, MongoDB, Next.js, and TypeS
 - Customer booking creation and history
 - Admin booking listing and status updates
 - Admin stats endpoint at `GET /api/admin/stats`
+- Debounced API-backed search on the Cars page
+- Sliding-window API rate limiting with `Retry-After`
+- Optimistic admin booking status updates with rollback on failure
 
 ## Local Setup
 
@@ -28,6 +31,8 @@ PORT=5000
 FRONTEND_URL=http://localhost:3000
 ROTTO_MONGO_URI=<your MongoDB Atlas URI>
 ROTTO_JWT_SECRET=<a long random secret>
+ROTTO_RATE_LIMIT_MAX=100
+ROTTO_RATE_LIMIT_WINDOW_MS=60000
 NODE_ENV=development
 ```
 

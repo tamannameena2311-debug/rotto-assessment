@@ -96,5 +96,10 @@
 
 ## Hard Feature
 
-**Option chosen:** A - Aggregation Stats Endpoint
-**Approach:** Added `GET /api/admin/stats` behind `authenticate` and `requireAdmin`. The endpoint uses one MongoDB `$facet` aggregation to return booking counts by status, counts by service type, the last five bookings with car/user data joined through `$lookup`, and total estimated revenue.
+**Option A - Aggregation Stats Endpoint:** Added `GET /api/admin/stats` behind `authenticate` and `requireAdmin`. The endpoint uses one MongoDB `$facet` aggregation to return booking counts by status, counts by service type, the last five bookings with car/user data joined through `$lookup`, and total estimated revenue.
+
+**Option B - Debounce Hook from Scratch:** Added `useDebounce<T>(value, delayMs)` without external libraries and wired it to the Cars page search input. The Cars page calls `GET /api/cars?search=...`, and the backend filters by make, model, registration number, or fuel type.
+
+**Option C - Sliding Window Rate Limiter:** Added Express middleware backed by a `Map` of per-IP request timestamps. It prunes timestamps outside the rolling window on each request, returns `429` when the current sliding window exceeds the limit, and includes a `Retry-After` header.
+
+**Option D - Optimistic UI:** Added admin booking management on the Bookings page. Admin status changes update the UI immediately, call `PUT /api/bookings/:id/status`, and roll back the changed booking if the API call fails.

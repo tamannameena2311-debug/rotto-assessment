@@ -1,13 +1,21 @@
-import type { Booking, BookingStatus, Car } from '@/types';
+import type { Booking, BookingStatus, Car, User } from '@/types';
 
 interface BookingCardProps {
   booking: Booking;
-  onStatusChange?: (id: string, status: Booking['status']) => void;
+  onStatusChange?: (id: string, status: BookingStatus) => void;
+  statusOptions?: BookingStatus[];
 }
 
 const getCar = (booking: Booking): Car | null => {
   if (booking.carId && typeof booking.carId === 'object') {
     return booking.carId as Car;
+  }
+  return null;
+};
+
+const getUser = (booking: Booking): User | null => {
+  if (booking.userId && typeof booking.userId === 'object') {
+    return booking.userId as User;
   }
   return null;
 };
@@ -37,8 +45,13 @@ const formatCurrency = (amount: number) =>
     maximumFractionDigits: 0,
   }).format(amount);
 
-export default function BookingCard({ booking, onStatusChange }: BookingCardProps) {
+export default function BookingCard({
+  booking,
+  onStatusChange,
+  statusOptions = STATUS_OPTIONS,
+}: BookingCardProps) {
   const car = getCar(booking);
+  const user = getUser(booking);
 
   return (
     <div className="rt-booking-card">
@@ -55,7 +68,7 @@ export default function BookingCard({ booking, onStatusChange }: BookingCardProp
             onChange={(e) => onStatusChange(booking._id, e.target.value as BookingStatus)}
             className={`rt-booking-status rt-booking-status--${booking.status}`}
           >
-            {STATUS_OPTIONS.map((status) => (
+            {statusOptions.map((status) => (
               <option key={status} value={status}>
                 {formatLabel(status)}
               </option>
@@ -71,6 +84,10 @@ export default function BookingCard({ booking, onStatusChange }: BookingCardProp
       <p className="rt-booking-card__car">
         {car ? `${car.year} ${car.make} ${car.model} - ${car.registrationNumber}` : 'Car details unavailable'}
       </p>
+
+      {user && (
+        <p className="rt-booking-card__car">Customer: {user.name} ({user.email})</p>
+      )}
 
       <p className="rt-booking-card__cost">Estimated cost: {formatCurrency(booking.estimatedCost)}</p>
 
